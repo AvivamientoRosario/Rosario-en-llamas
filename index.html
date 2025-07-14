@@ -1,117 +1,195 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Buscador de Entradas</title>
-    <style>
-      body {
-        margin: 0;
-        font-family: 'Segoe UI', sans-serif;
-        background: url('Rosario%20en%20llamas.jpg') no-repeat center center fixed;
-        background-size: cover;
-        color: white;
-        height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <title>Buscador de Entradas</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: url('Rosario%20en%20llamas.jpg') no-repeat center center fixed;
+      background-size: cover;
+      color: white;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
 
-      .container {
-        background-color: rgba(0, 0, 0, 0.7);
-        padding: 30px;
-        border-radius: 12px;
-        text-align: center;
-        width: 90%;
-        max-width: 400px;
-      }
+    .container {
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+    }
 
-      h1 {
-        margin-bottom: 20px;
-        font-size: 26px;
-      }
+    input {
+      padding: 10px;
+      font-size: 16px;
+      width: 80%;
+      border-radius: 4px;
+      border: none;
+      margin: 10px auto;
+      display: block;
+      text-align: center;
+    }
 
-      input {
-        padding: 10px;
-        font-size: 16px;
-        width: 70%;
-        border-radius: 4px;
-        border: none;
-        margin-bottom: 10px;
-      }
+    .busqueda {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
 
-      button {
-        background: white;
-        border: none;
-        padding: 10px;
-        border-radius: 4px;
-        cursor: pointer;
-      }
+    .busqueda input {
+      width: 70%;
+      margin: 0;
+    }
 
-      button:hover {
-        background: #ddd;
-      }
+    #botonBuscar {
+      background: #333;
+      border: none;
+      border-radius: 50px;
+      padding: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease;
+    }
 
-      #resultado {
-        margin-top: 20px;
-        font-size: 18px;
-      }
-    </style>
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-  </head>
-  <body>
-    <div class="container">
-      <h1>Buscador de Entradas</h1>
-      <input
-        type="text"
-        id="entrada"
-        placeholder="Número de entrada"
-        onkeypress="if(event.key==='Enter'){buscar()}"
-      />
-      <button onclick="buscar()">🔍</button>
-      <div id="resultado"></div>
+    #botonBuscar:hover {
+      background: #555;
+    }
+
+    .estado-pendiente {
+      color: orange;
+      font-weight: bold;
+    }
+
+    .estado-confirmado {
+      color: lightgreen;
+      font-weight: bold;
+    }
+
+    #resultado {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <!-- Login -->
+  <div class="container" id="loginBox">
+    <h2>Iniciar sesión</h2>
+    <input type="email" id="email" placeholder="Correo electrónico">
+    <input type="password" id="password" placeholder="Contraseña">
+    <button onclick="login()">Ingresar</button>
+    <div id="errorLogin" style="color: red; margin-top: 10px;"></div>
+  </div>
+
+  <!-- Buscador -->
+  <div class="container hidden" id="mainBox">
+    <h1>Buscador de Entradas</h1>
+    <div class="busqueda">
+      <input type="text" id="entrada" placeholder="Número de entrada" onkeypress="if(event.key==='Enter'){buscar()}">
+      <button id="botonBuscar" onclick="buscar()" title="Buscar">
+        <img src="https://img.icons8.com/ios-glyphs/30/ffffff/search--v1.png" alt="Buscar" style="width: 24px; height: 24px;">
+      </button>
     </div>
+    <div id="resultado"></div>
+    <button onclick="logout()" style="margin-top:20px;">Cerrar sesión</button>
+  </div>
 
-    <script>
-      const firebaseConfig = {
-        apiKey: "AIzaSyBVW1OvkYXl5djQW8X4cTCY-hTQGvq28N0",
-        authDomain: "prueba1-ceb44.firebaseapp.com",
-        projectId: "prueba1-ceb44",
-        storageBucket: "prueba1-ceb44.appspot.com",
-        messagingSenderId: "54935650857",
-        appId: "1:54935650857:web:dca2cefc0bdf5fcc9ed238",
-        measurementId: "G-YN5SL8Z5KY",
-      };
+  <!-- Script Firebase -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBVW1OvkYXl5djQW8X4cTCY-hTQGvq28N0",
+      authDomain: "prueba1-ceb44.firebaseapp.com",
+      projectId: "prueba1-ceb44",
+      storageBucket: "prueba1-ceb44.appspot.com",
+      messagingSenderId: "54935650857",
+      appId: "1:54935650857:web:dca2cefc0bdf5fcc9ed238",
+      measurementId: "G-YN5SL8Z5KY"
+    };
 
-      firebase.initializeApp(firebaseConfig);
-      const db = firebase.firestore();
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
-      function buscar() {
-        const entrada = document.getElementById("entrada").value.trim();
-        const resultado = document.getElementById("resultado");
-
-        if (!entrada) return;
-
-        db.collection("entradas")
-          .doc(entrada)
-          .get()
-          .then((doc) => {
-            if (doc.exists) {
-              const data = doc.data();
-              resultado.innerHTML = `<p><strong>Apellido y Nombre:</strong> ${data["APELLIDO Y NOMBRE"]}</p>
-                                      <p><strong>DNI:</strong> ${data["DNI"]}</p>`;
-            } else {
-              resultado.innerHTML =
-                "<p style='color: red;'>Entrada no encontrada</p>";
-            }
-          })
-          .catch((error) => {
-            console.error("Error al buscar la entrada:", error);
-            resultado.innerHTML =
-              "<p style='color: red;'>Error al buscar los datos</p>";
-          });
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        document.getElementById("loginBox").classList.add("hidden");
+        document.getElementById("mainBox").classList.remove("hidden");
+      } else {
+        document.getElementById("loginBox").classList.remove("hidden");
+        document.getElementById("mainBox").classList.add("hidden");
       }
-    </script>
-  </body>
+    });
+
+    function login() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const errorBox = document.getElementById("errorLogin");
+      errorBox.textContent = '';
+
+      auth.signInWithEmailAndPassword(email, password)
+        .catch(err => {
+          console.error(err);
+          errorBox.textContent = "Usuario o contraseña incorrectos";
+        });
+    }
+
+    function logout() {
+      auth.signOut();
+    }
+
+    function buscar() {
+      const entrada = document.getElementById("entrada").value.trim().padStart(4, '0');
+      const resultado = document.getElementById("resultado");
+      resultado.innerHTML = '';
+
+      if (!entrada) return;
+
+      db.collection("entradas").doc(entrada).get()
+        .then(doc => {
+          if (doc.exists) {
+            const data = doc.data();
+            const estado = data.ESTADO || "pendiente";
+            const clase = estado === "confirmado" ? "estado-confirmado" : "estado-pendiente";
+            resultado.innerHTML = `
+              <p><strong>Apellido y Nombre:</strong> ${data["APELLIDO Y NOMBRE"]}</p>
+              <p><strong>DNI:</strong> ${data["DNI"]}</p>
+              <p class="${clase}">Estado: ${estado.toUpperCase()}</p>
+              ${estado === "pendiente" ? '<button onclick="confirmar()">Confirmar</button>' : ''}
+            `;
+          } else {
+            resultado.innerHTML = "<p style='color:red;'>Entrada no encontrada</p>";
+          }
+        })
+        .catch(e => {
+          console.error(e);
+          resultado.innerHTML = "<p style='color:red;'>Error en la búsqueda</p>";
+        });
+    }
+
+    function confirmar() {
+      const entrada = document.getElementById("entrada").value.trim().padStart(4, '0');
+      db.collection("entradas").doc(entrada).update({ ESTADO: "confirmado" })
+        .then(() => buscar())
+        .catch(err => alert("Error al confirmar: " + err.message));
+    }
+  </script>
+</body>
 </html>
+
