@@ -28,12 +28,24 @@
     input {
       padding: 10px;
       font-size: 16px;
+      width: 80%;
       border-radius: 4px;
       border: none;
       margin: 10px auto;
       display: block;
       text-align: center;
-      width: 80%;
+    }
+
+    .busqueda {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .busqueda input {
+      width: 70%;
+      margin: 0;
     }
 
     #botonBuscar {
@@ -45,7 +57,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto;
       transition: background 0.2s ease;
     }
 
@@ -83,8 +94,8 @@
   <!-- Login -->
   <div class="container" id="loginBox">
     <h2>Iniciar sesión</h2>
-    <input type="email" id="email" placeholder="Correo electrónico">
-    <input type="password" id="password" placeholder="Contraseña" onkeypress="if(event.key==='Enter'){login()}">
+    <input type="email" id="email" placeholder="Correo electrónico" onkeypress="if(event.key==='Enter') login()">
+    <input type="password" id="password" placeholder="Contraseña" onkeypress="if(event.key==='Enter') login()">
     <button onclick="login()">Ingresar</button>
     <div id="errorLogin" style="color: red; margin-top: 10px;"></div>
   </div>
@@ -92,14 +103,17 @@
   <!-- Buscador -->
   <div class="container hidden" id="mainBox">
     <h1>Buscador de Entradas</h1>
-    <input type="text" id="entrada" placeholder="N° Entrada o DNI" onkeypress="if(event.key==='Enter'){buscar()}">
-    <button id="botonBuscar" onclick="buscar()" title="Buscar">
-      <img src="https://img.icons8.com/ios-glyphs/30/ffffff/search--v1.png" alt="Buscar" style="width: 24px; height: 24px;">
-    </button>
+    <div class="busqueda">
+      <input type="text" id="entrada" placeholder="N° Entrada o DNI" onkeypress="if(event.key==='Enter'){buscar()}">
+      <button id="botonBuscar" onclick="buscar()" title="Buscar">
+        <img src="https://img.icons8.com/ios-glyphs/30/ffffff/search--v1.png" alt="Buscar" style="width: 24px; height: 24px;">
+      </button>
+    </div>
     <div id="resultado"></div>
     <button onclick="logout()" style="margin-top:20px;">Cerrar sesión</button>
   </div>
 
+  <!-- Script Firebase -->
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCLYppb95mR6QXCUEjy6_uO6EIHasKtvGY",
@@ -116,13 +130,8 @@
     const db = firebase.firestore();
 
     auth.onAuthStateChanged(user => {
-      if (user) {
-        document.getElementById("loginBox").classList.add("hidden");
-        document.getElementById("mainBox").classList.remove("hidden");
-      } else {
-        document.getElementById("loginBox").classList.remove("hidden");
-        document.getElementById("mainBox").classList.add("hidden");
-      }
+      document.getElementById("loginBox").classList.toggle("hidden", !!user);
+      document.getElementById("mainBox").classList.toggle("hidden", !user);
     });
 
     function login() {
@@ -149,54 +158,52 @@
 
       if (!entrada) return;
 
-      // Si son hasta 4 dígitos, es número de entrada
-      if (/^\d{1,4}$/.test(entrada)) {
-        const numero = entrada.padStart(4, '0');
-        db.collection("entradas").doc(numero).get()
-          .then(doc => mostrarResultado(doc, numero))
-          .catch(e => {
-            console.error(e);
-            resultado.innerHTML = "<p style='color:red;'>Error en la búsqueda</p>";
-          });
-      } else {
-        db.collection("entradas").where("DNI", "==", entrada).get()
-          .then(snapshot => {
-            if (snapshot.empty) {
-              resultado.innerHTML = "<p style='color:red;'>DNI no encontrado</p>";
-            } else {
-              snapshot.forEach(doc => mostrarResultado(doc, doc.id));
-            }
-          })
-          .catch(e => {
-            console.error(e);
-            resultado.innerHTML = "<p style='color:red;'>Error en la búsqueda</p>";
-          });
-      }
+      // Buscar por número de entrada
+      const entradaId = entrada.padStart(4, '0');
+      db.collection("entradas").doc(entradaId).get()
+        .then(doc => {
+          if (doc.exists) {
+            mostrarResultado(doc.id, doc.data());
+          } else {
+            // Buscar por DNI si no existe por número
+            db.collection("entradas").where("DNI", "==", entrada).get()
+              .then(snapshot => {
+                if (!snapshot.empty) {
+                  const doc = snapshot.docs[0];
+                  mostrarResultado(doc.id, doc.data());
+                } else {
+                  resultado.innerHTML = "<p style='color:red;'>Entrada no encontrada</p>";
+                }
+              });
+          }
+        })
+        .catch(e => {
+          console.error(e);
+          resultado.innerHTML = "<p style='color:red;'>Error en la búsqueda</p>";
+        });
     }
 
-    function mostrarResultado(doc, id) {
-      const resultado = document.getElementById("resultado");
-      const data = doc.data();
+    function mostrarResultado(id, data) {
       const estado = data.ESTADO || "pendiente";
       const clase = estado === "confirmado" ? "estado-confirmado" : "estado-pendiente";
+      const resultado = document.getElementById("resultado");
 
       resultado.innerHTML = `
-        <p><strong>Número:</strong> ${id}</p>
+        <p><strong>Número de entrada:</strong> ${id}</p>
         <p><strong>Apellido y Nombre:</strong> ${data["APELLIDO Y NOMBRE"]}</p>
         <p><strong>DNI:</strong> ${data["DNI"]}</p>
         <p class="${clase}">Estado: ${estado.toUpperCase()}</p>
-        ${estado === "pendiente" ? `<button onclick="confirmar('${id}')">Confirmar</button>` : ''}
+        ${estado === "pendiente" ? '<button onclick="confirmar()">Confirmar</button>' : ''}
       `;
     }
 
-    function confirmar(id) {
-      db.collection("entradas").doc(id).update({ ESTADO: "confirmado" })
+    function confirmar() {
+      const entrada = document.getElementById("entrada").value.trim().padStart(4, '0');
+      db.collection("entradas").doc(entrada).update({ ESTADO: "confirmado" })
         .then(() => buscar())
         .catch(err => alert("Error al confirmar: " + err.message));
     }
   </script>
 </body>
 </html>
-
-
 
