@@ -25,10 +25,9 @@
       max-width: 400px;
     }
 
-    input {
+    input, select {
       padding: 10px;
       font-size: 16px;
-      width: 80%;
       border-radius: 4px;
       border: none;
       margin: 10px auto;
@@ -41,9 +40,10 @@
       justify-content: center;
       align-items: center;
       gap: 10px;
+      flex-wrap: wrap;
     }
 
-    .busqueda input {
+    .busqueda input, .busqueda select {
       width: 70%;
       margin: 0;
     }
@@ -104,7 +104,11 @@
   <div class="container hidden" id="mainBox">
     <h1>Buscador de Entradas</h1>
     <div class="busqueda">
-      <input type="text" id="entrada" placeholder="Número de entrada" onkeypress="if(event.key==='Enter'){buscar()}">
+      <select id="tipoBusqueda">
+        <option value="numero">N° Entrada</option>
+        <option value="dni">DNI</option>
+      </select>
+      <input type="text" id="entrada" placeholder="Buscar..." onkeypress="if(event.key==='Enter'){buscar()}">
       <button id="botonBuscar" onclick="buscar()" title="Buscar">
         <img src="https://img.icons8.com/ios-glyphs/30/ffffff/search--v1.png" alt="Buscar" style="width: 24px; height: 24px;">
       </button>
@@ -157,37 +161,54 @@
     }
 
     function buscar() {
-      const entrada = document.getElementById("entrada").value.trim().padStart(4, '0');
+      const tipo = document.getElementById("tipoBusqueda").value;
+      const entrada = document.getElementById("entrada").value.trim();
       const resultado = document.getElementById("resultado");
       resultado.innerHTML = '';
 
       if (!entrada) return;
 
-      db.collection("entradas").doc(entrada).get()
-        .then(doc => {
-          if (doc.exists) {
-            const data = doc.data();
-            const estado = data.ESTADO || "pendiente";
-            const clase = estado === "confirmado" ? "estado-confirmado" : "estado-pendiente";
-            resultado.innerHTML = `
-              <p><strong>Apellido y Nombre:</strong> ${data["APELLIDO Y NOMBRE"]}</p>
-              <p><strong>DNI:</strong> ${data["DNI"]}</p>
-              <p class="${clase}">Estado: ${estado.toUpperCase()}</p>
-              ${estado === "pendiente" ? '<button onclick="confirmar()">Confirmar</button>' : ''}
-            `;
-          } else {
-            resultado.innerHTML = "<p style='color:red;'>Entrada no encontrada</p>";
-          }
-        })
-        .catch(e => {
-          console.error(e);
-          resultado.innerHTML = "<p style='color:red;'>Error en la búsqueda</p>";
-        });
+      if (tipo === "numero") {
+        const numero = entrada.padStart(4, '0');
+        db.collection("entradas").doc(numero).get()
+          .then(doc => mostrarResultado(doc, numero))
+          .catch(e => {
+            console.error(e);
+            resultado.innerHTML = "<p style='color:red;'>Error en la búsqueda</p>";
+          });
+      } else if (tipo === "dni") {
+        db.collection("entradas").where("DNI", "==", entrada).get()
+          .then(snapshot => {
+            if (snapshot.empty) {
+              resultado.innerHTML = "<p style='color:red;'>DNI no encontrado</p>";
+            } else {
+              snapshot.forEach(doc => mostrarResultado(doc, doc.id));
+            }
+          })
+          .catch(e => {
+            console.error(e);
+            resultado.innerHTML = "<p style='color:red;'>Error en la búsqueda</p>";
+          });
+      }
     }
 
-    function confirmar() {
-      const entrada = document.getElementById("entrada").value.trim().padStart(4, '0');
-      db.collection("entradas").doc(entrada).update({ ESTADO: "confirmado" })
+    function mostrarResultado(doc, id) {
+      const resultado = document.getElementById("resultado");
+      const data = doc.data();
+      const estado = data.ESTADO || "pendiente";
+      const clase = estado === "confirmado" ? "estado-confirmado" : "estado-pendiente";
+
+      resultado.innerHTML = `
+        <p><strong>Número:</strong> ${id}</p>
+        <p><strong>Apellido y Nombre:</strong> ${data["APELLIDO Y NOMBRE"]}</p>
+        <p><strong>DNI:</strong> ${data["DNI"]}</p>
+        <p class="${clase}">Estado: ${estado.toUpperCase()}</p>
+        ${estado === "pendiente" ? `<button onclick="confirmar('${id}')">Confirmar</button>` : ''}
+      `;
+    }
+
+    function confirmar(id) {
+      db.collection("entradas").doc(id).update({ ESTADO: "confirmado" })
         .then(() => buscar())
         .catch(err => alert("Error al confirmar: " + err.message));
     }
