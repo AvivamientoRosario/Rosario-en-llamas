@@ -2,7 +2,6 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Buscador de Entradas</title>
   <style>
     body {
@@ -11,7 +10,7 @@
       background: url('Rosario%20en%20llamas.jpg') no-repeat center center fixed;
       background-size: cover;
       color: white;
-      min-height: 100vh;
+      height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -20,32 +19,49 @@
     .container {
       background-color: rgba(0, 0, 0, 0.7);
       padding: 30px;
-      border-radius: 12px;
+      border-radius: 20px;
       text-align: center;
       width: 90%;
       max-width: 400px;
       box-sizing: border-box;
     }
 
+    h1, h2 {
+      margin-top: 0;
+    }
+
     input {
-      padding: 12px;
-      font-size: 18px;
+      padding: 10px;
+      font-size: 16px;
       width: 100%;
-      border-radius: 4px;
+      border-radius: 8px;
       border: none;
       margin: 10px 0;
       text-align: center;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 10px 20px;
+      border-radius: 6px;
+      border: none;
+      background: white;
+      color: black;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
     }
 
     .busqueda {
       display: flex;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
       gap: 10px;
+      margin-top: 10px;
     }
 
     .busqueda input {
-      width: 100%;
+      flex: 1;
       margin: 0;
     }
 
@@ -59,12 +75,15 @@
       align-items: center;
       justify-content: center;
       transition: background 0.2s ease;
-      height: 44px;
-      width: 44px;
     }
 
     #botonBuscar:hover {
       background: #555;
+    }
+
+    #botonBuscar img {
+      width: 24px;
+      height: 24px;
     }
 
     .estado-pendiente {
@@ -86,52 +105,43 @@
       display: none;
     }
 
-    button {
-      padding: 10px 15px;
-      font-size: 16px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-
-    @media (max-width: 480px) {
-      body {
-        padding: 10px;
-      }
-      input, button {
-        font-size: 16px;
-      }
+    @media (max-width: 600px) {
       .container {
         padding: 20px;
       }
     }
   </style>
+
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
 </head>
 <body>
+
+  <!-- Login -->
   <div class="container" id="loginBox">
     <h2>Iniciar sesión</h2>
-    <input type="email" id="email" placeholder="Correo electrónico" onkeypress="if(event.key==='Enter'){login()}">
-    <input type="password" id="password" placeholder="Contraseña" onkeypress="if(event.key==='Enter'){login()}">
+    <input type="email" id="email" placeholder="Correo electrónico" onkeypress="if(event.key==='Enter')login()">
+    <input type="password" id="password" placeholder="Contraseña" onkeypress="if(event.key==='Enter')login()">
     <button onclick="login()">Ingresar</button>
     <div id="errorLogin" style="color: red; margin-top: 10px;"></div>
   </div>
 
+  <!-- Buscador -->
   <div class="container hidden" id="mainBox">
     <h1>Buscador de Entradas</h1>
     <div class="busqueda">
       <input type="text" id="entrada" placeholder="Número de entrada o DNI" onkeypress="if(event.key==='Enter'){buscar()}">
       <button id="botonBuscar" onclick="buscar()" title="Buscar">
-        <img src="https://img.icons8.com/ios-glyphs/30/ffffff/search--v1.png" alt="Buscar" style="width: 24px; height: 24px;">
+        <img src="https://img.icons8.com/ios-glyphs/30/ffffff/search--v1.png" alt="Buscar">
       </button>
     </div>
     <div id="resultado"></div>
     <button onclick="logout()">Cerrar sesión</button>
   </div>
 
+  <!-- Script -->
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCLYppb95mR6QXCUEjy6_uO6EIHasKtvGY",
@@ -162,6 +172,7 @@
       const password = document.getElementById("password").value;
       const errorBox = document.getElementById("errorLogin");
       errorBox.textContent = '';
+
       auth.signInWithEmailAndPassword(email, password)
         .catch(err => {
           console.error(err);
@@ -173,51 +184,49 @@
       auth.signOut();
     }
 
-    function buscar() {
+    async function buscar() {
       const entrada = document.getElementById("entrada").value.trim();
       const resultado = document.getElementById("resultado");
       resultado.innerHTML = '';
+
       if (!entrada) return;
 
-      // Buscar por número de entrada
-      db.collection("entradas").doc(entrada.padStart(4, '0')).get()
-        .then(doc => {
-          if (doc.exists) {
-            mostrarResultado(doc.id, doc.data());
-          } else {
-            // Buscar por DNI si no existe por número
-            db.collection("entradas").where("DNI", "==", entrada).get()
-              .then(querySnapshot => {
-                if (!querySnapshot.empty) {
-                  const doc = querySnapshot.docs[0];
-                  mostrarResultado(doc.id, doc.data());
-                } else {
-                  resultado.innerHTML = "<p style='color:red;'>Entrada no encontrada</p>";
-                }
-              });
-          }
-        })
-        .catch(e => {
-          console.error(e);
-          resultado.innerHTML = "<p style='color:red;'>Error en la búsqueda</p>";
-        });
+      // Primero intentamos por número exacto
+      const docRef = db.collection("entradas").doc(entrada.padStart(4, '0'));
+      const doc = await docRef.get();
+
+      if (doc.exists) {
+        mostrarResultado(doc.id, doc.data());
+        return;
+      }
+
+      // Si no se encuentra, buscar por DNI
+      const querySnapshot = await db.collection("entradas").where("DNI", "==", entrada).get();
+      if (!querySnapshot.empty) {
+        const doc = querySnapshot.docs[0];
+        mostrarResultado(doc.id, doc.data());
+      } else {
+        resultado.innerHTML = "<p style='color:red;'>Entrada no encontrada</p>";
+      }
     }
 
-    function mostrarResultado(id, data) {
+    function mostrarResultado(numero, data) {
+      const resultado = document.getElementById("resultado");
       const estado = data.ESTADO || "pendiente";
       const clase = estado === "confirmado" ? "estado-confirmado" : "estado-pendiente";
-      const resultado = document.getElementById("resultado");
       resultado.innerHTML = `
-        <p><strong>Número de entrada:</strong> ${id}</p>
+        <p><strong>Número de entrada:</strong> ${numero}</p>
         <p><strong>Apellido y Nombre:</strong> ${data["APELLIDO Y NOMBRE"]}</p>
         <p><strong>DNI:</strong> ${data["DNI"]}</p>
         <p class="${clase}">Estado: ${estado.toUpperCase()}</p>
-        ${estado === "pendiente" ? '<button onclick="confirmar(\'' + id + '\')">Confirmar</button>' : ''}
+        ${estado === "pendiente" ? '<button onclick="confirmar()">Confirmar</button>' : ''}
       `;
     }
 
-    function confirmar(id) {
-      db.collection("entradas").doc(id).update({ ESTADO: "confirmado" })
+    function confirmar() {
+      const entrada = document.getElementById("entrada").value.trim();
+      const ref = db.collection("entradas").doc(entrada.padStart(4, '0'));
+      ref.update({ ESTADO: "confirmado" })
         .then(() => buscar())
         .catch(err => alert("Error al confirmar: " + err.message));
     }
